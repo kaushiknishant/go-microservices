@@ -9,24 +9,36 @@ import (
 	"time"
 
 	"github.com/kaushiknishant/go-microservices/product-api/handlers"
+	"github.com/nicholasjackson/env"
 )
 
+var bindAddress = env.String("BIND_ADDRESS", false, ":9090", "Bind address for the server")
+
 func main() {
+	env.Parse()
+
 	logs := log.New(os.Stdout, "product-api", log.LstdFlags)
+
+	// create the handlers
 	helloHandler := handlers.NewHello(logs)
 	goodByeHandler := handlers.NewGoodBye(logs)
 
+	// create a new serve mux and register the handlers
 	serveMux := http.NewServeMux()
 	serveMux.Handle("/", helloHandler)
 	serveMux.Handle("/goodbye", goodByeHandler)
 
+	// create a new server
 	server := &http.Server{
-		Addr:         ":9090",
-		Handler:      serveMux,
-		IdleTimeout:  120 * time.Second,
-		ReadTimeout:  1 * time.Second,
-		WriteTimeout: 1 * time.Second,
+		Addr:         *bindAddress,      // configure the bind address
+		Handler:      serveMux,          // set the default handler
+		ErrorLog:     logs,              // set the logger for the server
+		IdleTimeout:  120 * time.Second, // max time for connections using TCP Keep-Alive
+		ReadTimeout:  5 * time.Second,   // max time to read request from the client
+		WriteTimeout: 10 * time.Second,  // max time to write response to the client
 	}
+
+	// start the server
 	go func() {
 		err := server.ListenAndServe()
 		if err != nil {
@@ -34,17 +46,25 @@ func main() {
 		}
 	}()
 
+	// trap sigterm or interupt and gracefully shutdown the server
 	sigChan := make(chan os.Signal)
 	signal.Notify(sigChan, os.Interrupt)
 	signal.Notify(sigChan, os.Kill)
 
+	// Block until a signal is received.
 	sig := <-sigChan
 	logs.Println("Received terminate, graceful shutdown", sig)
 
+	// Absolute time needed for WithDeadline
 	duration := time.Now().Add(30 * time.Second)
+	// gracefully shutdown the server, waiting max 30 seconds for current operations to complete
 	timeOutContext, cancel := context.WithDeadline(context.Background(), duration)
 
+	// Even though timeOutContext will be expired, it is good practice to call its
+	// cancellation function in any case. Failure to do so may keep the
+	// context and its parent alive longer than necessary.
 	defer cancel()
 
+	// shutdown the server
 	server.Shutdown(timeOutContext)
 }
