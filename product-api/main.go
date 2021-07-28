@@ -20,13 +20,11 @@ func main() {
 	logs := log.New(os.Stdout, "product-api", log.LstdFlags)
 
 	// create the handlers
-	helloHandler := handlers.NewHello(logs)
-	goodByeHandler := handlers.NewGoodBye(logs)
+	productsHandler := handlers.NewProducts(logs)
 
 	// create a new serve mux and register the handlers
 	serveMux := http.NewServeMux()
-	serveMux.Handle("/", helloHandler)
-	serveMux.Handle("/goodbye", goodByeHandler)
+	serveMux.Handle("/", productsHandler)
 
 	// create a new server
 	server := &http.Server{
@@ -40,9 +38,12 @@ func main() {
 
 	// start the server
 	go func() {
+		logs.Println("Starting server on port 9090")
+
 		err := server.ListenAndServe()
 		if err != nil {
-			logs.Fatal(err)
+			logs.Printf("Error starting server: %s\n", err)
+			os.Exit(1)
 		}
 	}()
 
