@@ -18,6 +18,11 @@ type Product struct {
 	DeletedOn   string  `json:"-"`
 }
 
+func (product *Product) FromJSON(r io.Reader) error {
+	err := json.NewDecoder(r)
+	return err.Decode(product)
+}
+
 // Products is a collection of Product
 type Products []*Product
 
@@ -27,14 +32,25 @@ type Products []*Product
 // this reduces allocations and the overheads of the service
 //
 // https://golang.org/pkg/encoding/json/#NewEncoder
-func (p *Products) ToJSON(w io.Writer) error {
-	e := json.NewEncoder(w)
-	return e.Encode(p)
+func (product *Products) ToJSON(w io.Writer) error {
+	err := json.NewEncoder(w)
+	return err.Encode(product)
 }
 
 // GetProducts returns a list of products
 func GetProducts() Products {
 	return productList
+}
+
+func AddProduct(product *Product) {
+	product.ID = getNextID()
+	productList = append(productList, product)
+}
+
+// getNextID() will generate ID for the product added.
+func getNextID() int {
+	lp := productList[len(productList)-1]
+	return lp.ID + 1
 }
 
 // productList is a hard coded list of products for this
