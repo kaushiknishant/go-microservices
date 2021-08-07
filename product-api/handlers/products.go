@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"log"
 	"net/http"
 	"strconv"
@@ -38,38 +39,24 @@ func (product *Products) GetProducts(rw http.ResponseWriter, r *http.Request) {
 func (product *Products) AddProduct(rw http.ResponseWriter, r *http.Request) {
 	product.logger.Println("Handle POST Product")
 
-	// Product defines the structure for an API product
-	prod := &data.Product{}
-	// serialize the JSON to list
-	err := prod.FromJSON(r.Body)
-
-	if err != nil {
-		http.Error(rw, "unable to unmarshal json", http.StatusBadRequest)
-	}
-	product.logger.Printf("Prod: %#v", prod)
+	prod := r.Context().Value(KeyProduct{}).(data.Product)
 
 	//add the data
-	data.AddProduct(prod)
+	data.AddProduct(&prod)
 }
 
 func (product Products) UpdateProduct(rw http.ResponseWriter, r *http.Request){
 	vars := mux.Vars(r)
-	id, err1 := strconv.Atoi(vars["id"])
-	if err1 != nil {
+	id, err := strconv.Atoi(vars["id"])
+	if err != nil {
 		http.Error(rw, "Unable to convert id", http.StatusBadRequest)
 		return
 	}
 
 	product.logger.Println("Handle PUT Product",id)
-	prod := &data.Product{}
+	prod := r.Context().Value(KeyProduct{}).(data.Product)
 
-	err := prod.FromJSON(r.Body)
-
-	if err != nil {
-		http.Error(rw, "Unable to unmarshal json", http.StatusBadRequest)
-	}
-
-	err = data.UpdateProduct(id, prod)
+	err = data.UpdateProduct(id, &prod)
 	if err == data.ErrProductNotFound {
 		http.Error(rw, "Product not found", http.StatusNotFound)
 		return
@@ -79,4 +66,26 @@ func (product Products) UpdateProduct(rw http.ResponseWriter, r *http.Request){
 		http.Error(rw, "Product not found", http.StatusInternalServerError)
 		return
 	}
+}
+
+type KeyProduct struct{}
+
+func(product Products) MiddlewareProductValidation(next http.Handler) http.Handler{
+	return http.HandlerFunc(func(rw http.ResponseWriter, r* http.Request) {
+		prod := data.Product{}
+
+		err := prod.FromJSON(r.Body)
+	
+		if err != nil {
+			product.logger.Println("[ERROR] deserializing product", err)
+			http.Error(rw, "Error reading product", http.StatusBadRequest)
+			return
+		}
+				// add the product to the context
+				ctx := context.WithValue(r.Context(), KeyProduct{}, prod)
+				r = r.WithContext(ctx)
+		
+				// Call the next handler, which can be another middleware in the chain, or the final handler.
+				next.ServeHTTP(rw, r)
+	})
 }

@@ -28,11 +28,15 @@ func main() {
 	getRouter := serveMux.Methods(http.MethodGet).Subrouter()
 	//serveMux.Handle("/products", productsHandler)
 	getRouter.HandleFunc("/", productsHandler.GetProducts)
+
 	putRouter := serveMux.Methods(http.MethodPut).Subrouter()
 	putRouter.HandleFunc("/{id:[0-9]+}", productsHandler.UpdateProduct)
+	putRouter.Use(productsHandler.MiddlewareProductValidation)
 
-	postRouter := serveMux.Methods(http.MethodPut).Subrouter()
-	postRouter.HandleFunc("/{id:[0-9]+}", productsHandler.AddProduct)
+	postRouter := serveMux.Methods(http.MethodPost).Subrouter()
+	postRouter.HandleFunc("/", productsHandler.AddProduct)
+	postRouter.Use(productsHandler.MiddlewareProductValidation)
+
 	// create a new server
 	server := &http.Server{
 		Addr:         *bindAddress,      // configure the bind address
