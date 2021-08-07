@@ -8,6 +8,7 @@ import (
 	"os/signal"
 	"time"
 
+	"github.com/gorilla/mux"
 	"github.com/kaushiknishant/go-microservices/product-api/handlers"
 	"github.com/nicholasjackson/env"
 )
@@ -23,9 +24,15 @@ func main() {
 	productsHandler := handlers.NewProducts(logs)
 
 	// create a new serve mux and register the handlers
-	serveMux := http.NewServeMux()
-	serveMux.Handle("/", productsHandler)
+	serveMux := mux.NewRouter()
+	getRouter := serveMux.Methods(http.MethodGet).Subrouter()
+	//serveMux.Handle("/products", productsHandler)
+	getRouter.HandleFunc("/", productsHandler.GetProducts)
+	putRouter := serveMux.Methods(http.MethodPut).Subrouter()
+	putRouter.HandleFunc("/{id:[0-9]+}", productsHandler.UpdateProduct)
 
+	postRouter := serveMux.Methods(http.MethodPut).Subrouter()
+	postRouter.HandleFunc("/{id:[0-9]+}", productsHandler.AddProduct)
 	// create a new server
 	server := &http.Server{
 		Addr:         *bindAddress,      // configure the bind address
