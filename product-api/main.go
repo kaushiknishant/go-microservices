@@ -59,7 +59,7 @@ func main() {
 	}()
 
 	// trap sigterm or interupt and gracefully shutdown the server
-	sigChan := make(chan os.Signal,1)
+	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt)
 	signal.Notify(sigChan, os.Kill)
 

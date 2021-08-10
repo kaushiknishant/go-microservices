@@ -4,16 +4,19 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"regexp"
 	"time"
+
+	"github.com/go-playground/validator/v10"
 )
 
 // Product defines the structure for an API product
 type Product struct {
 	ID          int     `json:"id"`
-	Name        string  `json:"name"`
+	Name        string  `json:"name" validate:"required"`
 	Description string  `json:"description"`
-	Price       float32 `json:"price"`
-	SKU         string  `json:"sku"`
+	Price       float32 `json:"price" validate:"gt=0"`
+	SKU         string  `json:"sku" validate:"required,sku"`
 	CreatedOn   string  `json:"-"`
 	UpdatedOn   string  `json:"-"`
 	DeletedOn   string  `json:"-"`
@@ -22,6 +25,22 @@ type Product struct {
 func (product *Product) FromJSON(r io.Reader) error {
 	err := json.NewDecoder(r)
 	return err.Decode(product)
+}
+
+// custom validation function for sku
+func validateSKU(fl validator.FieldLevel) bool {
+	//sku is of format abc-cdsf-asdfn
+	regex := regexp.MustCompile(`[a-z]+-[a-z]+-[a-z]+`)
+	matches := regex.FindAllString(fl.Field().String(), -1)
+	return len(matches) == 1
+}
+
+//function for validation
+func (product *Product) Validate() error {
+	validate := validator.New()
+
+	validate.RegisterValidation("sku", validateSKU)
+	return validate.Struct(product)
 }
 
 // Products is a collection of Product
@@ -56,7 +75,7 @@ func getNextID() int {
 }
 
 // the UpdateProduct update the product in the product list
-func UpdateProduct(id int,product *Product) error{
+func UpdateProduct(id int, product *Product) error {
 	_, pos, err := findProduct(id)
 	if err != nil {
 		return err
@@ -68,18 +87,17 @@ func UpdateProduct(id int,product *Product) error{
 	return nil
 }
 
-
-//custom error message 
+//custom error message
 var ErrProductNotFound = fmt.Errorf("Product not found")
 
 // Find the product in the Product List
-func findProduct(id int)(*Product, int ,error){
-	for i,p := range productList {
-		if p.ID == id{
+func findProduct(id int) (*Product, int, error) {
+	for i, p := range productList {
+		if p.ID == id {
 			return p, i, nil
 		}
 	}
-	return nil,-1,ErrProductNotFound
+	return nil, -1, ErrProductNotFound
 }
 
 // productList is a hard coded list of products for this
